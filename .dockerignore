@@ -1,0 +1,6 @@
+worktime.db
+*.md
+.git
+.gitignore
+Dockerfile
+.dockerignore

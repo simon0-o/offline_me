@@ -1,0 +1,175 @@
+syntax = "proto3";
+
+package worktime.tracker;
+
+// 定义 http 接口需要 import 这个
+import "google/api/annotations.proto";
+// 定义 error 需要 import 这个
+import "errors/errors.proto";
+
+option go_package = "github.com/simon0-o/offline_me/backend/worktime/tracker;tracker";
+
+// ==================== Request Messages ====================
+
+// CheckInRequest represents a check-in API request
+message CheckInRequest {
+  string check_in_time = 1; // RFC3339 format timestamp
+}
+
+// CheckOutRequest represents a check-out API request
+message CheckOutRequest {
+  string check_out_time = 1; // RFC3339 format timestamp
+}
+
+// TodayCheckInRequest represents a request to get/auto-fetch today's check-in
+message TodayCheckInRequest {
+  string date = 1; // YYYY-MM-DD format
+  bool re_check_in = 2;
+}
+
+// ConfigRequest represents a configuration update request
+message ConfigRequest {
+  int32 work_hours = 1; // in minutes
+  string check_in_api_url = 2;
+  bool auto_fetch_enabled = 3;
+  string p_auth = 4;
+  string p_rtoken = 5;
+  string check_in_webhook_url = 6;
+  string check_out_webhook_url = 7;
+}
+
+// GetStatusRequest is an empty request for getting current status
+message GetStatusRequest {}
+
+// GetConfigRequest is an empty request for getting configuration
+message GetConfigRequest {}
+
+// GetMonthlyStatsRequest is an empty request for getting monthly statistics
+message GetMonthlyStatsRequest {}
+
+// ==================== Response Messages ====================
+
+// CheckInResponse represents a check-in API response
+message CheckInResponse {
+  string session_id = 1;
+  string check_in_time = 2; // RFC3339 format timestamp
+  string expected_check_out_time = 3; // RFC3339 format timestamp
+  int32 work_hours = 4; // in minutes
+}
+
+// CheckOutResponse represents a check-out API response
+message CheckOutResponse {
+  string session_id = 1;
+  string check_in_time = 2; // RFC3339 format timestamp
+  string check_out_time = 3; // RFC3339 format timestamp
+  int32 overtime_minutes = 4;
+}
+
+// StatusResponse represents the current work status
+message StatusResponse {
+  bool has_checked_in = 1;
+  string check_in_time = 2; // RFC3339 format timestamp, optional
+  string check_out_time = 3; // RFC3339 format timestamp, optional
+  string expected_check_out_time = 4; // RFC3339 format timestamp, optional
+  string current_time = 5; // RFC3339 format timestamp
+  int32 work_hours = 6; // in minutes
+  bool is_check_out_time = 7;
+  int32 overtime_minutes = 8;
+}
+
+// TodayCheckInResponse represents a response for today's check-in status
+message TodayCheckInResponse {
+  bool has_checked_in = 1;
+  string check_in_time = 2; // RFC3339 format timestamp, optional
+  bool can_auto_fetch = 3;
+  bool auto_fetch_enabled = 4;
+  string api_error = 5; // optional error message
+}
+
+// ConfigResponse represents a configuration response
+message ConfigResponse {
+  int32 work_hours = 1; // in minutes
+  string check_in_api_url = 2;
+  bool auto_fetch_enabled = 3;
+  string p_auth = 4;
+  string p_rtoken = 5;
+  string check_in_webhook_url = 6;
+  string check_out_webhook_url = 7;
+}
+
+// MonthStats represents statistics for a single month
+message MonthStats {
+  string year_month = 1; // YYYY-MM format
+  int32 total_days = 2;
+  int32 checked_out_days = 3;
+  int32 overtime_minutes = 4;
+}
+
+// MonthlyStatsResponse represents monthly overtime statistics
+message MonthlyStatsResponse {
+  MonthStats current_month = 1;
+  MonthStats last_month = 2;
+}
+
+// UpdateConfigResponse represents a successful config update
+message UpdateConfigResponse {
+  string status = 1; // "success"
+}
+
+// ==================== Service Definition ====================
+
+// WorkTimeTracker service handles work time tracking operations
+service WorkTimeTracker {
+  // CheckIn records a check-in time
+  rpc CheckIn(CheckInRequest) returns (CheckInResponse) {
+    option (google.api.http) = {
+      post: "/api/checkin"
+      body: "*"
+    };
+  }
+
+  // CheckOut records a check-out time
+  rpc CheckOut(CheckOutRequest) returns (CheckOutResponse) {
+    option (google.api.http) = {
+      post: "/api/checkout"
+      body: "*"
+    };
+  }
+
+  // GetStatus retrieves the current work status
+  rpc GetStatus(GetStatusRequest) returns (StatusResponse) {
+    option (google.api.http) = {
+      get: "/api/status"
+    };
+  }
+
+  // GetTodayCheckIn retrieves or auto-fetches today's check-in information
+  rpc GetTodayCheckIn(TodayCheckInRequest) returns (TodayCheckInResponse) {
+    option (google.api.http) = {
+      post: "/api/today-checkin"
+      body: "*"
+    };
+  }
+
+  // GetMonthlyStats retrieves monthly overtime statistics
+  rpc GetMonthlyStats(GetMonthlyStatsRequest) returns (MonthlyStatsResponse) {
+    option (google.api.http) = {
+      get: "/api/monthly-stats"
+    };
+  }
+
+  // GetConfig retrieves the current configuration
+  rpc GetConfig(GetConfigRequest) returns (ConfigResponse) {
+    option (google.api.http) = {
+      get: "/api/config"
+    };
+  }
+
+  // UpdateConfig updates the work configuration
+  rpc UpdateConfig(ConfigRequest) returns (UpdateConfigResponse) {
+    option (google.api.http) = {
+      post: "/api/config"
+      body: "*"
+    };
+  }
+}
