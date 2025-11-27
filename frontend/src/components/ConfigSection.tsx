@@ -6,22 +6,25 @@ import type { WorkConfig } from '@/lib/types';
 
 interface ConfigSectionProps {
   onConfigUpdate: () => void;
+  initialConfig?: WorkConfig;
 }
 
-export default function ConfigSection({ onConfigUpdate }: ConfigSectionProps) {
-  const [workHours, setWorkHours] = useState(8);
-  const [workMinutes, setWorkMinutes] = useState(0);
-  const [autoFetchEnabled, setAutoFetchEnabled] = useState(false);
-  const [checkInAPIURL, setCheckInAPIURL] = useState('');
-  const [pAuth, setPAuth] = useState('');
-  const [pRToken, setPRToken] = useState('');
-  const [checkInWebhookURL, setCheckInWebhookURL] = useState('');
-  const [checkOutWebhookURL, setCheckOutWebhookURL] = useState('');
+export default function ConfigSection({ onConfigUpdate, initialConfig }: ConfigSectionProps) {
+  const [workHours, setWorkHours] = useState(initialConfig ? Math.floor(initialConfig.work_hours / 60) : 8);
+  const [workMinutes, setWorkMinutes] = useState(initialConfig ? initialConfig.work_hours % 60 : 0);
+  const [autoFetchEnabled, setAutoFetchEnabled] = useState(initialConfig?.auto_fetch_enabled || false);
+  const [checkInAPIURL, setCheckInAPIURL] = useState(initialConfig?.check_in_api_url || '');
+  const [pAuth, setPAuth] = useState(initialConfig?.p_auth || '');
+  const [pRToken, setPRToken] = useState(initialConfig?.p_rtoken || '');
+  const [checkInWebhookURL, setCheckInWebhookURL] = useState(initialConfig?.check_in_webhook_url || '');
+  const [checkOutWebhookURL, setCheckOutWebhookURL] = useState(initialConfig?.check_out_webhook_url || '');
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    loadConfig();
-  }, []);
+    if (!initialConfig) {
+      loadConfig();
+    }
+  }, [initialConfig]);
 
   const loadConfig = async () => {
     try {
