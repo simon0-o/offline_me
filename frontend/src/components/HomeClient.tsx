@@ -7,7 +7,6 @@ import type { StatusResponse, MonthlyStatsResponse, WorkConfig } from '@/lib/typ
 import StatusCard from '@/components/StatusCard';
 import MonthlyStatsCard from '@/components/MonthlyStatsCard';
 import CheckInSection from '@/components/CheckInSection';
-import ReCheckInSection from '@/components/ReCheckInSection';
 import CheckOutSection from '@/components/CheckOutSection';
 import ConfigSection from '@/components/ConfigSection';
 
@@ -104,17 +103,13 @@ export default function HomeClient({
                 <MonthlyStatsCard stats={monthlyStats} />
                 <StatusCard status={status} />
 
-                {status?.has_checked_in ? (
-                    <>
-                        <ReCheckInSection
-                            currentCheckInTime={status.check_in_time!}
-                            onSuccess={handleRefresh}
-                        />
-                        <CheckOutSection onSuccess={handleRefresh} />
-                    </>
-                ) : (
-                    <CheckInSection onSuccess={handleRefresh} />
-                )}
+                <>
+                    <CheckInSection
+                        currentCheckInTime={status?.check_in_time || ''}
+                        onSuccess={handleRefresh}
+                    />
+                    <CheckOutSection onSuccess={handleRefresh} />
+                </>
 
                 <ConfigSection onConfigUpdate={handleRefresh} initialConfig={initialConfig} />
             </div>
