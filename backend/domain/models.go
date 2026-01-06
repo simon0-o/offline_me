@@ -75,6 +75,11 @@ func (c *WorkConfig) ShouldAutoFetch() bool {
 	return c.AutoFetchEnabled && c.HasAPIConfig()
 }
 
+// CalculateExpectedCheckOut calculates when the user should check out
+func (c *WorkConfig) CalculateExpectedCheckOut(checkInTime time.Time) time.Time {
+	return checkInTime.Add(time.Duration(c.DefaultWorkHours) * time.Minute)
+}
+
 // MonthlyStats represents aggregated statistics for a month
 type MonthlyStats struct {
 	YearMonth       string // YYYY-MM format

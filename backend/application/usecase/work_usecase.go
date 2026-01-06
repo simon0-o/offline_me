@@ -3,7 +3,7 @@ package usecase
 
 import (
 	"fmt"
-	"log"
+	"log/slog"
 	"time"
 
 	"github.com/google/uuid"
@@ -44,7 +44,7 @@ func (uc *WorkUsecase) CheckIn(req *dto.CheckInRequest) (*dto.CheckInResponse, e
 		existingSession.WorkHours = config.DefaultWorkHours
 		existingSession.CheckOut = nil // Reset checkout time
 		session = existingSession
-		log.Printf("[CheckIn] Re-checking in for %s at %v", today, req.CheckInTime)
+		slog.Info("[CheckIn] Re-checking in", "date", today, "time", req.CheckInTime)
 	} else {
 		// New check-in: create new session
 		session = &domain.WorkSession{
@@ -53,7 +53,7 @@ func (uc *WorkUsecase) CheckIn(req *dto.CheckInRequest) (*dto.CheckInResponse, e
 			CheckIn:   req.CheckInTime,
 			WorkHours: config.DefaultWorkHours,
 		}
-		log.Printf("[CheckIn] New check-in for %s at %v", today, req.CheckInTime)
+		slog.Info("[CheckIn] New check-in", "date", today, "time", req.CheckInTime)
 	}
 
 	if err := uc.repo.SaveSession(session); err != nil {
@@ -84,7 +84,7 @@ func (uc *WorkUsecase) CheckOut(req *dto.CheckOutRequest) (*dto.CheckOutResponse
 		return nil, fmt.Errorf("failed to save check-out: %w", err)
 	}
 
-	log.Printf("[CheckOut] Checked out at %v, overtime: %d minutes", req.CheckOutTime, session.CalculateOvertime())
+	slog.Info("[CheckOut] Checked out", "time", req.CheckOutTime, "overtime_minutes", session.CalculateOvertime())
 
 	return &dto.CheckOutResponse{
 		SessionID:       session.ID,
@@ -160,9 +160,9 @@ func (uc *WorkUsecase) GetTodayCheckIn(req *dto.TodayCheckInRequest) (*dto.Today
 
 // autoFetchCheckIn fetches check-in time from HR API and creates a session
 func (uc *WorkUsecase) autoFetchCheckIn(date string, existingSession *domain.WorkSession, config *domain.WorkConfig) (*dto.TodayCheckInResponse, error) {
-	checkInTime, err := uc.attendanceProvider.FetchCheckInTime(config, date)
+	checkInTime, _, err := uc.attendanceProvider.FetchAttendanceStatus(config, date)
 	if err != nil {
-		log.Printf("[AutoFetch] Failed to fetch check-in time: %v", err)
+		slog.Info("[AutoFetch] Failed to fetch check-in time", "error", err)
 		return &dto.TodayCheckInResponse{
 			HasCheckedIn:     false,
 			CheckInTime:      nil,
@@ -172,7 +172,7 @@ func (uc *WorkUsecase) autoFetchCheckIn(date string, existingSession *domain.Wor
 		}, nil
 	}
 
-	log.Printf("[AutoFetch] Successfully fetched check-in time: %v", *checkInTime)
+	slog.Info("[AutoFetch] Successfully fetched check-in time", "time", *checkInTime)
 
 	// Determine session ID
 	sessionID := uuid.New().String()
@@ -189,7 +189,7 @@ func (uc *WorkUsecase) autoFetchCheckIn(date string, existingSession *domain.Wor
 	}
 
 	if err := uc.repo.SaveSession(session); err != nil {
-		log.Printf("[AutoFetch] Failed to save session: %v", err)
+		slog.Info("[AutoFetch] Failed to save session", "error", err)
 		return &dto.TodayCheckInResponse{
 			HasCheckedIn:     false,
 			CheckInTime:      checkInTime,
@@ -237,7 +237,7 @@ func (uc *WorkUsecase) UpdateConfig(req *dto.ConfigRequest) error {
 			if err := uc.repo.SaveSession(session); err != nil {
 				return fmt.Errorf("failed to update session work hours: %w", err)
 			}
-			log.Printf("[UpdateConfig] Updated today's session work hours to %d minutes", req.WorkHours)
+			slog.Info("[UpdateConfig] Updated today's session work hours", "minutes", req.WorkHours)
 		}
 	}
 
@@ -245,7 +245,7 @@ func (uc *WorkUsecase) UpdateConfig(req *dto.ConfigRequest) error {
 		return fmt.Errorf("failed to save config: %w", err)
 	}
 
-	log.Printf("[UpdateConfig] Configuration updated successfully")
+	slog.Info("[UpdateConfig] Configuration updated successfully")
 	return nil
 }
 

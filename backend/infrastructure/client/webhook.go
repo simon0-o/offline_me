@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"log"
+	"log/slog"
 	"net/http"
 	"time"
 )
@@ -33,7 +33,7 @@ func (c *WebhookClient) Alarm(url string, message string) error {
 		message = "Work time notification"
 	}
 
-	log.Printf("[Ntfy] Sending notification to: %s", url)
+	slog.Info("[Ntfy] Sending notification", "url", url)
 
 	req, err := http.NewRequest("POST", url, bytes.NewBufferString(message))
 	if err != nil {
@@ -53,12 +53,12 @@ func (c *WebhookClient) Alarm(url string, message string) error {
 	defer resp.Body.Close()
 
 	respBody, _ := io.ReadAll(resp.Body)
-	log.Printf("[Ntfy] Response status: %d, body: %s", resp.StatusCode, string(respBody))
+	slog.Info("[Ntfy] Response", "status", resp.StatusCode, "body", string(respBody))
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		return fmt.Errorf("ntfy returned non-2xx status: %d", resp.StatusCode)
 	}
 
-	log.Printf("[Ntfy] Successfully sent notification to: %s", url)
+	slog.Info("[Ntfy] Successfully sent notification", "url", url)
 	return nil
 }

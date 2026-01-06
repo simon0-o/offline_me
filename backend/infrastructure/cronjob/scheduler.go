@@ -1,7 +1,7 @@
 package cronjob
 
 import (
-	"log"
+	"log/slog"
 	"time"
 
 	"github.com/robfig/cron/v3"
@@ -23,7 +23,7 @@ func NewScheduler(store domain.Repository) *Scheduler {
 	// Use Asia/Shanghai timezone for cron jobs
 	location, err := time.LoadLocation("Asia/Shanghai")
 	if err != nil {
-		log.Printf("[Scheduler] Failed to load Asia/Shanghai timezone, using Local: %v", err)
+		slog.Info("[Scheduler] Failed to load Asia/Shanghai timezone, using Local", "error", err)
 		location = time.Local
 	}
 
@@ -38,109 +38,109 @@ func NewScheduler(store domain.Repository) *Scheduler {
 
 // Start starts the cron scheduler
 func (s *Scheduler) Start() {
-	log.Println("[Scheduler] Starting cronjob scheduler...")
+	slog.Info("[Scheduler] Starting cronjob scheduler...")
 
 	// Task 1: Check-in reminder at 9:55 AM (China time)
 	if _, err := s.cron.AddFunc("55 9 * * *", s.checkInReminder); err != nil {
-		log.Printf("[Scheduler] Failed to add check-in reminder job: %v", err)
+		slog.Info("[Scheduler] Failed to add check-in reminder job", "error", err)
 	} else {
-		log.Println("[Scheduler] Added check-in reminder: 9:55 AM daily")
+		slog.Info("[Scheduler] Added check-in reminder: 9:55 AM daily")
 	}
 
 	// Task 2: Check-out reminder at 8:30 PM (China time)
 	if _, err := s.cron.AddFunc("30 20 * * *", s.checkOutReminder); err != nil {
-		log.Printf("[Scheduler] Failed to add check-out reminder (8:30 PM): %v", err)
+		slog.Info("[Scheduler] Failed to add check-out reminder (8:30 PM)", "error", err)
 	} else {
-		log.Println("[Scheduler] Added check-out reminder: 8:30 PM daily")
+		slog.Info("[Scheduler] Added check-out reminder: 8:30 PM daily")
 	}
 
 	// Task 3: Check-out reminder at 9:30 PM (China time)
 	if _, err := s.cron.AddFunc("30 21 * * *", s.checkOutReminder); err != nil {
-		log.Printf("[Scheduler] Failed to add check-out reminder (9:30 PM): %v", err)
+		slog.Info("[Scheduler] Failed to add check-out reminder (9:30 PM)", "error", err)
 	} else {
-		log.Println("[Scheduler] Added check-out reminder: 9:30 PM daily")
+		slog.Info("[Scheduler] Added check-out reminder: 9:30 PM daily")
 	}
 
 	s.cron.Start()
-	log.Println("[Scheduler] Cronjob scheduler started successfully")
+	slog.Info("[Scheduler] Cronjob scheduler started successfully")
 }
 
 // Stop stops the cron scheduler
 func (s *Scheduler) Stop() {
-	log.Println("[Scheduler] Stopping cronjob scheduler...")
+	slog.Info("[Scheduler] Stopping cronjob scheduler...")
 	s.cron.Stop()
-	log.Println("[Scheduler] Cronjob scheduler stopped")
+	slog.Info("[Scheduler] Cronjob scheduler stopped")
 }
 
 // checkInReminder sends a reminder to check in if not already done
 func (s *Scheduler) checkInReminder() {
-	log.Println("[CheckInReminder] Running task...")
+	slog.Info("[CheckInReminder] Running task...")
 
 	config, err := s.store.GetConfig()
 	if err != nil {
-		log.Printf("[CheckInReminder] Failed to get config: %v", err)
+		slog.Info("[CheckInReminder] Failed to get config", "error", err)
 		return
 	}
 	if config.CheckInWebhookURL == "" {
-		log.Println("[CheckInReminder] Webhook URL not configured, skipping")
+		slog.Info("[CheckInReminder] Webhook URL not configured, skipping")
 		return
 	}
 
 	// Step 1: Check if today is a holiday
 	if s.isHolidayToday() {
-		log.Println("[CheckInReminder] Today is a holiday, skipping")
+		slog.Info("[CheckInReminder] Today is a holiday, skipping")
 		return
 	}
 
 	// Step 2: Check if already checked in via HR API
 	today := time.Now().Format("2006-01-02")
 	if s.hasCheckedIn(config, today) {
-		log.Println("[CheckInReminder] Already checked in, skipping")
+		slog.Info("[CheckInReminder] Already checked in, skipping")
 		return
 	}
 
 	// Step 3: Send ntfy notification
-	log.Printf("[CheckInReminder] Sending notification to: %s", config.CheckInWebhookURL)
+	slog.Info("[CheckInReminder] Sending notification", "url", config.CheckInWebhookURL)
 	if err := s.webhookClient.Alarm(config.CheckInWebhookURL, "⏰ Time to check in! Don't forget to clock in for work."); err != nil {
-		log.Printf("[CheckInReminder] Failed to send notification: %v", err)
+		slog.Info("[CheckInReminder] Failed to send notification", "error", err)
 	} else {
-		log.Println("[CheckInReminder] Notification sent successfully")
+		slog.Info("[CheckInReminder] Notification sent successfully")
 	}
 }
 
 // checkOutReminder sends a reminder to check out if not already done
 func (s *Scheduler) checkOutReminder() {
-	log.Println("[CheckOutReminder] Running task...")
+	slog.Info("[CheckOutReminder] Running task...")
 
 	config, err := s.store.GetConfig()
 	if err != nil {
-		log.Printf("[CheckOutReminder] Failed to get config: %v", err)
+		slog.Info("[CheckOutReminder] Failed to get config", "error", err)
 		return
 	}
 	if config.CheckOutWebhookURL == "" {
-		log.Println("[CheckOutReminder] Webhook URL not configured, skipping")
+		slog.Info("[CheckOutReminder] Webhook URL not configured, skipping")
 		return
 	}
 
 	// Step 1: Check if today is a holiday
 	if s.isHolidayToday() {
-		log.Println("[CheckOutReminder] Today is a holiday, skipping")
+		slog.Info("[CheckOutReminder] Today is a holiday, skipping")
 		return
 	}
 
 	// Step 2: Check if already checked out via HR API
 	today := time.Now().Format("2006-01-02")
 	if s.hasCheckedOut(config, today) {
-		log.Println("[CheckOutReminder] Already checked out, skipping")
+		slog.Info("[CheckOutReminder] Already checked out, skipping")
 		return
 	}
 
 	// Step 3: Send ntfy notification
-	log.Printf("[CheckOutReminder] Sending notification to: %s", config.CheckOutWebhookURL)
+	slog.Info("[CheckOutReminder] Sending notification", "url", config.CheckOutWebhookURL)
 	if err := s.webhookClient.Alarm(config.CheckOutWebhookURL, "✅ Time to check out! Remember to clock out from work."); err != nil {
-		log.Printf("[CheckOutReminder] Failed to send notification: %v", err)
+		slog.Info("[CheckOutReminder] Failed to send notification", "error", err)
 	} else {
-		log.Println("[CheckOutReminder] Notification sent successfully")
+		slog.Info("[CheckOutReminder] Notification sent successfully")
 	}
 }
 
@@ -148,7 +148,7 @@ func (s *Scheduler) checkOutReminder() {
 func (s *Scheduler) isHolidayToday() bool {
 	isHoliday, err := s.holidayClient.IsHoliday()
 	if err != nil {
-		log.Printf("[Scheduler] Failed to check holiday status: %v", err)
+		slog.Error("[Scheduler] Failed to check holiday status", "error", err)
 		return false // Assume not a holiday on error
 	}
 	return isHoliday
@@ -160,13 +160,13 @@ func (s *Scheduler) hasCheckedIn(config *domain.WorkConfig, date string) bool {
 		return false
 	}
 
-	hasCheckedIn, _, err := s.attendanceProvider.FetchAttendanceStatus(config, date)
+	checkedIn, _, err := s.attendanceProvider.FetchAttendanceStatus(config, date)
 	if err != nil {
-		log.Printf("[Scheduler] Failed to check HR check-in status: %v", err)
+		slog.Info("[Scheduler] Failed to check HR check-in status", "error", err)
 		return false // Assume not checked in on error
 	}
 
-	return hasCheckedIn
+	return checkedIn != nil
 }
 
 // hasCheckedOut checks if already checked out today via HR API
@@ -175,11 +175,23 @@ func (s *Scheduler) hasCheckedOut(config *domain.WorkConfig, date string) bool {
 		return false
 	}
 
-	_, hasCheckedOut, err := s.attendanceProvider.FetchAttendanceStatus(config, date)
+	checkedIn, checkedOut, err := s.attendanceProvider.FetchAttendanceStatus(config, date)
 	if err != nil {
-		log.Printf("[Scheduler] Failed to check HR check-out status: %v", err)
+		slog.Info("[Scheduler] Failed to check HR check-out status", "error", err)
 		return false // Assume not checked out on error
 	}
+	if checkedIn == nil || checkedOut == nil {
+		return false
+	}
+	// update the work session with check-out time
+	session := s.store.GetTodaySession(date)
+	if session != nil && session.CheckOut == nil {
+		session.CheckOut = checkedOut
+		if err := s.store.SaveSession(session); err != nil {
+			slog.Info("[Scheduler] Failed to save session", "error", err)
+		}
+	}
 
-	return hasCheckedOut
+	expectedCheckOut := config.CalculateExpectedCheckOut(*checkedIn)
+	return checkedOut.After(expectedCheckOut)
 }

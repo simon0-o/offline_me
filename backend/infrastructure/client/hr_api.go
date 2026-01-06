@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
+	"log/slog"
 	"net/http"
 	"strings"
 	"time"
@@ -47,108 +47,39 @@ func NewHRAPIClient() domain.AttendanceProvider {
 	}
 }
 
-// FetchCheckInTime fetches the check-in time for a specific date from HR API
-func (c *HRAPIClient) FetchCheckInTime(config *domain.WorkConfig, date string) (*time.Time, error) {
-	if !config.ShouldAutoFetch() {
-		return nil, fmt.Errorf("HR API not properly configured or auto-fetch disabled")
-	}
-
-	log.Printf("[HR API] Fetching check-in time for date: %s", date)
-
-	// Build API URL with monthly parameter
-	apiURL := c.buildAPIURL(config.CheckInAPIURL, date)
-	log.Printf("[HR API] Request URL: %s", apiURL)
-
-	// Create and configure request
-	req, err := c.createRequest(apiURL, config)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create request: %w", err)
-	}
-
-	// Execute request
-	resp, err := c.httpClient.Do(req)
-	if err != nil {
-		log.Printf("[HR API] Request failed: %v", err)
-		return nil, fmt.Errorf("HTTP request failed: %w", err)
-	}
-	defer resp.Body.Close()
-
-	log.Printf("[HR API] Response status: %d", resp.StatusCode)
-
-	// Read response body
-	bodyBytes, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read response body: %w", err)
-	}
-
-	log.Printf("[HR API] Raw response: %s", string(bodyBytes))
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("API returned status %d: %s", resp.StatusCode, string(bodyBytes))
-	}
-
-	// Parse response
-	var hrResponse HRAttendanceInfo
-	if err := json.Unmarshal(bodyBytes, &hrResponse); err != nil {
-		return nil, fmt.Errorf("failed to decode response: %w", err)
-	}
-
-	log.Printf("[HR API] Response - Code: %s, Success: %v, Message: %s, Records: %d",
-		hrResponse.Code, hrResponse.Success, hrResponse.Message, len(hrResponse.Data))
-
-	if hrResponse.Code != "200" || !hrResponse.Success {
-		return nil, fmt.Errorf("API error (code %s): %s", hrResponse.Code, hrResponse.Message)
-	}
-
-	// Find check-in record for the specified date
-	return c.extractCheckInTime(hrResponse.Data, date)
-}
-
 // FetchAttendanceStatus fetches attendance records for a specific date
-func (c *HRAPIClient) FetchAttendanceStatus(config *domain.WorkConfig, date string) (hasCheckedIn, hasCheckedOut bool, err error) {
+func (c *HRAPIClient) FetchAttendanceStatus(config *domain.WorkConfig, date string) (checkedIn, checkedOut *time.Time, err error) {
 	if !config.HasAPIConfig() {
-		return false, false, fmt.Errorf("HR API not properly configured")
+		return nil, nil, fmt.Errorf("HR API not properly configured")
 	}
 
 	apiURL := c.buildAPIURL(config.CheckInAPIURL, date)
 	req, err := c.createRequest(apiURL, config)
 	if err != nil {
-		return false, false, err
+		return nil, nil, err
 	}
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
-		return false, false, fmt.Errorf("HTTP request failed: %w", err)
+		return nil, nil, fmt.Errorf("HTTP request failed: %w", err)
 	}
 	defer resp.Body.Close()
 
 	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return false, false, fmt.Errorf("failed to read response: %w", err)
+		return nil, nil, fmt.Errorf("failed to read response: %w", err)
 	}
 
 	var hrResponse HRAttendanceInfo
 	if err := json.Unmarshal(bodyBytes, &hrResponse); err != nil {
-		return false, false, fmt.Errorf("failed to decode response: %w", err)
+		return nil, nil, fmt.Errorf("failed to decode response: %w", err)
 	}
 
 	if hrResponse.Code != "200" || !hrResponse.Success {
-		return false, false, fmt.Errorf("API error: %s", hrResponse.Message)
+		return nil, nil, fmt.Errorf("API error: %s", hrResponse.Message)
 	}
 
-	// Check attendance status for the date
-	for _, record := range hrResponse.Data {
-		if record.AttendanceDate == date {
-			hasCheckedIn = record.FirstClockInTime != nil && *record.FirstClockInTime != ""
-			hasCheckedOut = record.LastClockOutTime != nil && *record.LastClockOutTime != ""
-			log.Printf("[HR API] Attendance status for %s - CheckedIn: %v, CheckedOut: %v",
-				date, hasCheckedIn, hasCheckedOut)
-			return hasCheckedIn, hasCheckedOut, nil
-		}
-	}
-
-	log.Printf("[HR API] No attendance record found for date: %s", date)
-	return false, false, nil
+	return c.extractCheckTime(hrResponse.Data, date)
 }
 
 // buildAPIURL constructs the API URL with the monthly parameter
@@ -190,24 +121,41 @@ func (c *HRAPIClient) createRequest(url string, config *domain.WorkConfig) (*htt
 	return req, nil
 }
 
-// extractCheckInTime extracts and parses the check-in time from attendance records
-func (c *HRAPIClient) extractCheckInTime(records []AttendanceRecord, date string) (*time.Time, error) {
+// extractCheckTime extracts and parses the check-in and check-out time from attendance records
+func (c *HRAPIClient) extractCheckTime(records []AttendanceRecord, date string) (checkInTime *time.Time, checkOutTime *time.Time, err error) {
 	for _, record := range records {
-		if record.AttendanceDate == date && record.FirstClockInTime != nil && *record.FirstClockInTime != "" {
-			checkInStr := fmt.Sprintf("%s %s:00", date, *record.FirstClockInTime)
-			log.Printf("[HR API] Parsing check-in time: %s", checkInStr)
+		if record.AttendanceDate == date {
+			if record.FirstClockInTime != nil && *record.FirstClockInTime != "" {
+				checkInStr := fmt.Sprintf("%s %s:00", date, *record.FirstClockInTime)
+				slog.Info("[HR API] Parsing check-in time", "time_str", checkInStr)
 
-			checkInTime, err := time.Parse("2006-01-02 15:04:05", checkInStr)
-			if err != nil {
-				return nil, fmt.Errorf("failed to parse time %s: %w", checkInStr, err)
+				ct, err := time.Parse("2006-01-02 15:04:05", checkInStr)
+				if err != nil {
+					return nil, nil, fmt.Errorf("failed to parse time %s: %w", checkInStr, err)
+				}
+
+				// Adjust timezone (subtract 8 hours to convert to local time)
+				ct = ct.In(time.Local).Add(-time.Hour * 8)
+				checkInTime = &ct
+				slog.Info("[HR API] Successfully parsed check-in time", "time", checkInTime)
 			}
+			if record.LastClockOutTime != nil && *record.LastClockOutTime != "" {
+				checkOutStr := fmt.Sprintf("%s %s:00", date, *record.LastClockOutTime)
+				slog.Info("[HR API] Parsing check-out time", "time_str", checkOutStr)
 
-			// Adjust timezone (subtract 8 hours to convert to local time)
-			checkInTime = checkInTime.In(time.Local).Add(-time.Hour * 8)
-			log.Printf("[HR API] Successfully parsed check-in time: %v", checkInTime)
-			return &checkInTime, nil
+				ct, err := time.Parse("2006-01-02 15:04:05", checkOutStr)
+				if err != nil {
+					return nil, nil, fmt.Errorf("failed to parse time %s: %w", checkOutStr, err)
+				}
+
+				// Adjust timezone (subtract 8 hours to convert to local time)
+				ct = ct.In(time.Local).Add(-time.Hour * 8)
+				checkOutTime = &ct
+				slog.Info("[HR API] Successfully parsed check-out time", "time", checkOutTime)
+			}
+			return
 		}
 	}
 
-	return nil, fmt.Errorf("no check-in found for date %s", date)
+	return nil, nil, fmt.Errorf("no attendance record found for date %s", date)
 }

@@ -6,7 +6,7 @@ import type { WorkConfig } from '@/lib/types';
 
 interface ConfigSectionProps {
   onConfigUpdate: () => void;
-  initialConfig?: WorkConfig;
+  initialConfig: WorkConfig | null;
 }
 
 export default function ConfigSection({ onConfigUpdate, initialConfig }: ConfigSectionProps) {

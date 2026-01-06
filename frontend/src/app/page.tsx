@@ -20,9 +20,9 @@ export default async function Home() {
 
   return (
     <HomeClient
-      initialStatus={status!}
-      initialMonthlyStats={monthlyStats!}
-      initialConfig={config!}
+      initialStatus={status}
+      initialMonthlyStats={monthlyStats}
+      initialConfig={config}
     />
   );
 }

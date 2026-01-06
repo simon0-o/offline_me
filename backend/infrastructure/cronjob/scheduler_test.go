@@ -56,16 +56,7 @@ func TestIsHolidayToday_WorkingDay(t *testing.T) {
 
 	// Mock holiday API response for working day
 	httpmock.RegisterResponder("GET", "http://api.haoshenqi.top/holiday/today",
-		httpmock.NewJsonResponderOrPanic(200, client.HolidayResponse{
-			Code: 200,
-			Data: struct {
-				Date   string `json:"date"`
-				Status string `json:"status"`
-			}{
-				Date:   "2025-10-13",
-				Status: client.HolidayStatusWork,
-			},
-		}))
+		httpmock.NewBytesResponder(200, []byte(client.HolidayStatusWork)))
 
 	mockStore := &MockStore{}
 	scheduler := NewScheduler(mockStore)
@@ -82,16 +73,7 @@ func TestIsHolidayToday_Holiday(t *testing.T) {
 
 	// Mock holiday API response for holiday
 	httpmock.RegisterResponder("GET", "http://api.haoshenqi.top/holiday/today",
-		httpmock.NewJsonResponderOrPanic(200, client.HolidayResponse{
-			Code: 200,
-			Data: struct {
-				Date   string `json:"date"`
-				Status string `json:"status"`
-			}{
-				Date:   "2025-10-01",
-				Status: client.HolidayStatusRest,
-			},
-		}))
+		httpmock.NewBytesResponder(200, []byte(client.HolidayStatusRest)))
 
 	mockStore := &MockStore{}
 	scheduler := NewScheduler(mockStore)
@@ -260,16 +242,7 @@ func TestCheckInReminder_Holiday(t *testing.T) {
 
 	// Mock holiday API to return holiday
 	httpmock.RegisterResponder("GET", "http://api.haoshenqi.top/holiday/today",
-		httpmock.NewJsonResponderOrPanic(200, client.HolidayResponse{
-			Code: 200,
-			Data: struct {
-				Date   string `json:"date"`
-				Status string `json:"status"`
-			}{
-				Date:   "2025-10-13",
-				Status: client.HolidayStatusRest,
-			},
-		}))
+		httpmock.NewBytesResponder(200, []byte(client.HolidayStatusRest)))
 
 	mockStore := &MockStore{}
 	scheduler := NewScheduler(mockStore)
@@ -307,16 +280,7 @@ func TestCheckOutReminder_Holiday(t *testing.T) {
 
 	// Mock holiday API to return holiday
 	httpmock.RegisterResponder("GET", "http://api.haoshenqi.top/holiday/today",
-		httpmock.NewJsonResponderOrPanic(200, client.HolidayResponse{
-			Code: 200,
-			Data: struct {
-				Date   string `json:"date"`
-				Status string `json:"status"`
-			}{
-				Date:   "2025-10-13",
-				Status: client.HolidayStatusRest,
-			},
-		}))
+		httpmock.NewBytesResponder(200, []byte(client.HolidayStatusRest)))
 
 	mockStore := &MockStore{}
 	scheduler := NewScheduler(mockStore)

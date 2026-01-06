@@ -163,8 +163,8 @@ func TestAlarm(t *testing.T) {
 					if req.Header.Get("Tags") != "warning,skull" {
 						t.Errorf("Expected Tags header 'warning,skull', got '%s'", req.Header.Get("Tags"))
 					}
-					if req.Header.Get("Content-Type") != "text/plain; charset=utf-8" {
-						t.Errorf("Expected Content-Type 'text/plain; charset=utf-8', got '%s'", req.Header.Get("Content-Type"))
+					if req.Header.Get("Content-Type") != "text/plain" {
+						t.Errorf("Expected Content-Type 'text/plain', got '%s'", req.Header.Get("Content-Type"))
 					}
 
 					// Verify message body

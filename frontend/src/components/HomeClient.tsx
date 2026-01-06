@@ -11,9 +11,9 @@ import CheckOutSection from '@/components/CheckOutSection';
 import ConfigSection from '@/components/ConfigSection';
 
 interface HomeClientProps {
-    initialStatus: StatusResponse;
-    initialMonthlyStats: MonthlyStatsResponse;
-    initialConfig?: WorkConfig;
+    initialStatus: StatusResponse | null;
+    initialMonthlyStats: MonthlyStatsResponse | null;
+    initialConfig: WorkConfig | null;
 }
 
 export default function HomeClient({
